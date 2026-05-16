@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🎛️ Real-Time Microphone Equalizer | Web Audio Filter</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: linear-gradient(145deg, #1a1e2c 0%, #0f121e 100%);
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, 'Montserrat', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .equalizer-card {
+            max-width: 1100px;
+            width: 100%;
+            background: rgba(22, 26, 40, 0.85);
+            backdrop-filter: blur(4px);
+            border-radius: 2.5rem;
+            padding: 1.8rem 2rem 2.2rem;
+            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s ease;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin: 0 0 0.2rem 0;
+            letter-spacing: -0.3px;
+            background: linear-gradient(135deg, #E0E7FF, #A5B4FC);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sub {
+            color: #8d9bb0;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+            border-left: 3px solid #3b82f6;
+            padding-left: 0.75rem;
+        }
+
+        .controls-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            background: #0b0e17a0;
+            border-radius: 2rem;
+            padding: 0.7rem 1.2rem;
+            backdrop-filter: blur(2px);
+        }
+
+        .mic-btn {
+            background: #2d374b;
+            border: none;
+            padding: 0.6rem 1.4rem;
+            border-radius: 3rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            color: #e2e8f0;
+            transition: 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .mic-btn.active {
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 0 12px rgba(59,130,246,0.5);
+        }
+
+        .mic-btn.stop {
+            background: #dc2626;
+            color: white;
+        }
+
+        .status {
+            background: #00000055;
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-family: monospace;
+            color: #b9c3db;
+        }
+
+        .equalizer-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-evenly;
+            gap: 1.2rem;
+            margin: 2rem 0 1.5rem;
+        }
+
+        .band {
+            background: #11141fcc;
+            backdrop-filter: blur(4px);
+            border-radius: 2rem;
+            padding: 1rem 0.8rem 1rem;
+            text-align: center;
+            min-width: 85px;
+            flex: 1;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: transform 0.1s;
+        }
+
+        .band-label {
+            font-weight: 600;
+            font-size: 0.85rem;
+            background: #1e2538;
+            display: inline-block;
+            padding: 0.2rem 0.8rem;
+            border-radius: 40px;
+            color: #cbd5e6;
+            margin-bottom: 1rem;
+        }
+
+        .frequency {
+            font-size: 0.7rem;
+            color: #7e8aae;
+            letter-spacing: 0.3px;
+            margin-top: 5px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #2d3448;
+            border-radius: 10px;
+            outline: none;
+            margin: 1rem 0 0.5rem;
+        }
+
+        input[type="range"]:focus {
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #3b82f6;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 8px #3b82f6;
+            border: none;
+        }
+
+        .gain-value {
+            font-size: 0.7rem;
+            font-weight: bold;
+            background: #00000066;
+            display: inline-block;
+            padding: 0.1rem 0.5rem;
+            border-radius: 20px;
+            margin-top: 6px;
+            color: #a5b4fc;
+        }
+
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 1.8rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.75rem;
+            color: #7c85a3;
+        }
+
+        .latency-note {
+            background: #00000040;
+            padding: 0.2rem 0.7rem;
+            border-radius: 20px;
+        }
+
+        button {
+            background: none;
+            border: none;
+        }
+
+        .warning {
+            color: #facc15;
+        }
+
+        @media (max-width: 700px) {
+            .equalizer-card {
+                padding: 1.2rem;
+            }
+            .band {
+                min-width: 65px;
+            }
+            .band-label {
+                font-size: 0.7rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="equalizer-card">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap;">
+        <h1>🎚️ LIVE MICROPHONE EQUALIZER</h1>
+        <div class="status" id="sysStatus">⚫ SYSTEM READY</div>
+    </div>
+    <div class="sub">Real‑time audio filtering · 6‑band parametric EQ · Drag sliders → instant frequency shaping</div>
+
+    <div class="controls-bar">
+        <button id="toggleMicBtn" class="mic-btn">🎤 REQUEST MIC & START</button>
+        <div class="latency-note">🔊 <span id="streamState">⏻ Inactive</span> | 🎛️ Filtered output to speakers</div>
+    </div>
+
+    <!-- 6-band equalizer: covering sub-bass to high treble -->
+    <div class="equalizer-grid" id="eqGrid">
+        <!-- bands will be populated with JS but static fallback for clarity -->
+    </div>
+
+    <div class="info-panel">
+        <span>⚡ <strong>How it works:</strong> Mic input → 6 parallel biquad filters (peak/notch config) → output to speakers. Adjust sliders to boost/cut specific frequencies.</span>
+        <span class="warning">🎧 Use headphones to avoid feedback loop</span>
+    </div>
+    <div class="info-panel" style="justify-content: center; margin-top: 5px;">
+        <span>🔄 Minimal latency (Web Audio graph) · Close to real-time</span>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ---------- AUDIO GLOBALS ----------
+        let audioContext = null;          // main context
+        let mediaStream = null;           // microphone stream
+        let sourceNode = null;            // MediaStreamSource
+        let outputGainNode = null;        // master gain (optional but handy)
+        let filterNodes = [];              // array of BiquadFilterNode instances
+        
+        // Flag to know if stream is active and everything wired
+        let isAudioActive = false;
+        
+        // Predefined frequency bands (Hz) covering typical EQ ranges
+        const bands = [
+            { freq: 60, label: "SUB", name: "60 Hz", min: -24, max: 12, default: 0 },
+            { freq: 150, label: "LOW", name: "150 Hz", min: -24, max: 12, default: 0 },
+            { freq: 400, label: "LOW-MID", name: "400 Hz", min: -24, max: 12, default: 0 },
+            { freq: 1000, label: "MID", name: "1 kHz", min: -24, max: 12, default: 0 },
+            { freq: 3200, label: "HIGH-MID", name: "3.2 kHz", min: -24, max: 12, default: 0 },
+            { freq: 8000, label: "TREBLE", name: "8 kHz", min: -24, max: 12, default: 0 }
+        ];
+        
+        // DOM elements
+        const toggleBtn = document.getElementById('toggleMicBtn');
+        const streamStateSpan = document.getElementById('streamState');
+        const sysStatusSpan = document.getElementById('sysStatus');
+        const eqGrid = document.getElementById('eqGrid');
+        
+        // sliders references for updating values display and filter gain
+        let sliderElements = [];
+        let valueSpans = [];
+        
+        // build UI for each band
+        function buildEqualizerUI() {
+            eqGrid.innerHTML = '';
+            sliderElements = [];
+            valueSpans = [];
+            
+            bands.forEach((band, idx) => {
+                const bandDiv = document.createElement('div');
+                bandDiv.className = 'band';
+                
+                const labelSpan = document.createElement('div');
+                labelSpan.className = 'band-label';
+                labelSpan.innerText = band.label;
+                
+                const freqSpan = document.createElement('div');
+                freqSpan.className = 'frequency';
+                freqSpan.innerText = band.name;
+                
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.min = band.min;
+                slider.max = band.max;
+                slider.value = band.default;
+                slider.step = 0.5;
+                slider.dataset.idx = idx;
+                slider.classList.add('eq-slider');
+                
+                const valSpan = document.createElement('div');
+                valSpan.className = 'gain-value';
+                valSpan.innerText = `${band.default} dB`;
+                
+                slider.addEventListener('input', (e) => {
+                    const newVal = parseFloat(e.target.value);
+                    valSpan.innerText = `${newVal.toFixed(1)} dB`;
+                    updateFilterGain(idx, newVal);
+                });
+                
+                bandDiv.appendChild(labelSpan);
+                bandDiv.appendChild(freqSpan);
+                bandDiv.appendChild(slider);
+                bandDiv.appendChild(valSpan);
+                eqGrid.appendChild(bandDiv);
+                
+                sliderElements.push(slider);
+                valueSpans.push(valSpan);
+                
+                // initial gain text
+                valSpan.innerText = `${band.default} dB`;
+            });
+        }
+        
+        // Update the specific BiquadFilterNode gain (peak filter)
+        function updateFilterGain(index, gainDb) {
+            if (!isAudioActive || !filterNodes[index]) return;
+            // For peaking filter, gain value in dB (positive boost, negative cut)
+            // BiquadFilterNode.gain is an AudioParam, expects linear gain value? Actually .gain value is in dB for peaking and lowshelf etc.
+            // According to spec: For 'peaking' filter, .gain value is in dB.
+            filterNodes[index].gain.value = gainDb;
+        }
+        
+        // initialize filters (creates if context exists, attaches to chain)
+        function createAndConnectFilters(ctx, source, output) {
+            // disconnect any existing filters chain - we'll rebuild fresh
+            // but we'll just create new nodes and connect in series: source -> filter0 -> filter1 ... -> outputGain -> destination
+            // Ensure filterNodes array empty.
+            if (filterNodes.length) {
+                // disconnect previous chain properly? easier: we stop whole graph and rebuild.
+                try {
+                    if (sourceNode) {
+                        sourceNode.disconnect();
+                    }
+                } catch(e) { /* ignore */ }
+            }
+            filterNodes = [];
+            
+            let previousNode = source;  // start from source node
+            
+            // create each peak filter with configured frequency, Q and initial gain (default 0)
+            for (let i = 0; i < bands.length; i++) {
+                const band = bands[i];
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'peaking';
+                filter.frequency.value = band.freq;
+                // Q factor: standard value for graphic-eq style, around 1.41 gives nice musical width
+                filter.Q.value = 1.2;
+                // initial gain (dB)
+                const initGain = sliderElements[i] ? parseFloat(sliderElements[i].value) : band.default;
+                filter.gain.value = initGain;
+                
+                // connect previous node to this filter
+                previousNode.connect(filter);
+                previousNode = filter;
+                filterNodes.push(filter);
+            }
+            
+            // after all filters, connect to output gain (master volume) then to destination
+            if (outputGainNode) {
+                previousNode.connect(outputGainNode);
+                outputGainNode.connect(ctx.destination);
+            } else {
+                // fallback if gain missing
+                const masterGain = ctx.createGain();
+                masterGain.gain.value = 1.0;
+                previousNode.connect(masterGain);
+                masterGain.connect(ctx.destination);
+                outputGainNode = masterGain;
+            }
+            
+            // update sliders gains to match actual filter gains (already set individually)
+            for (let i = 0; i < filterNodes.length; i++) {
+                if (sliderElements[i]) {
+                    const currentGain = filterNodes[i].gain.value;
+                    if (!isNaN(currentGain) && Math.abs(currentGain - parseFloat(sliderElements[i].value)) > 0.1) {
+                        sliderElements[i].value = currentGain;
+                        if(valueSpans[i]) valueSpans[i].innerText = `${currentGain.toFixed(1)} dB`;
+                    }
+                }
+            }
+        }
+        
+        // ---- Main Audio Initialization: Request mic, build graph ----
+        async function initMicrophoneAndEQ() {
+            // close existing audio context & stream if any
+            await closeAudioContext();
+            
+            try {
+                // Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
+                } });
+                mediaStream = stream;
+                
+                // Create AudioContext (chrome allows resume after user gesture, but we are inside click)
+                // note: we must create context after user interaction, but AudioContext can be started later. Actually we create now.
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Create source from stream
+                sourceNode = audioContext.createMediaStreamSource(stream);
+                
+                // Create output gain node (master volume safety)
+                outputGainNode = audioContext.createGain();
+                outputGainNode.gain.value = 1.0;   // unity
+                
+                // Build equalizer filters & chain (connects source -> filters -> outputGain -> destination)
+                // But filters depend on audioContext and sourceNode
+                // create fresh filters and connect chain
+                filterNodes = [];
+                let prev = sourceNode;
+                for (let i = 0; i < bands.length; i++) {
+                    const f = audioContext.createBiquadFilter();
+                    f.type = 'peaking';
+                    f.frequency.value = bands[i].freq;
+                    f.Q.value = 1.2;
+                    const initialSliderVal = sliderElements[i] ? parseFloat(sliderElements[i].value) : bands[i].default;
+                    f.gain.value = initialSliderVal;
+                    prev.connect(f);
+                    prev = f;
+                    filterNodes.push(f);
+                }
+                // connect last filter to outputGain
+                prev.connect(outputGainNode);
+                outputGainNode.connect(audioContext.destination);
+                
+                // Resume audio context (required after creation)
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+                
+                isAudioActive = true;
+                streamStateSpan.innerText = '🎙️ LIVE · EQ ACTIVE';
+                sysStatusSpan.innerHTML = '🟢 STREAMING + FILTERING';
+                toggleBtn.classList.add('active');
+                toggleBtn.innerHTML = '🔴 STOP & CLOSE MIC';
+                toggleBtn.classList.remove('stop');
+                toggleBtn.classList.add('stop'); // style red stop indication
+                // ensure all sliders update filters (sync gains)
+                for (let i = 0; i < filterNodes.length; i++) {
+                    if (sliderElements[i]) {
+                        const currentSliderVal = parseFloat(sliderElements[i].value);
+                        filterNodes[i].gain.value = currentSliderVal;
+                    }
+                }
+                
+            } catch (err) {
+                console.error('Microphone error:', err);
+                sysStatusSpan.innerHTML = '❌ MIC ERROR: ' + (err.message || 'Permission denied');
+                streamStateSpan.innerText = '⛔ Access denied';
+                isAudioActive = false;
+                toggleBtn.classList.remove('active', 'stop');
+                toggleBtn.innerHTML = '🎤 REQUEST MIC & START';
+            }
+        }
+        
+        // Close everything: stop tracks, close context, reset flags
+        async function closeAudioContext() {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => {
+                    if (track.readyState === 'live') track.stop();
+                });
+                mediaStream = null;
+            }
+            if (sourceNode) {
+                try { sourceNode.disconnect(); } catch(e) {}
+                sourceNode = null;
+            }
+            if (filterNodes.length) {
+                filterNodes.forEach(f => {
+                    try { f.disconnect(); } catch(e) {}
+                });
+                filterNodes = [];
+            }
+            if (outputGainNode) {
+                try { outputGainNode.disconnect(); } catch(e) {}
+                outputGainNode = null;
+            }
+            if (audioContext) {
+                await audioContext.close().catch(e => console.warn);
+                audioContext = null;
+            }
+            isAudioActive = false;
+            streamStateSpan.innerText = '⏻ Inactive';
+            sysStatusSpan.innerHTML = '⚫ SYSTEM READY';
+            toggleBtn.classList.remove('active', 'stop');
+            toggleBtn.innerHTML = '🎤 REQUEST MIC & START';
+        }
+        
+        // Toggle function: if active -> close; else init
+        async function toggleMicrophoneEQ() {
+            if (isAudioActive) {
+                await closeAudioContext();
+            } else {
+                await initMicrophoneAndEQ();
+            }
+        }
+        
+        // In case browser auto-suspends context due to no audio, add click to resume if needed
+        function ensureContextRunning() {
+            if (audioContext && audioContext.state === 'suspended' && isAudioActive) {
+                audioContext.resume().then(() => {
+                    console.log('AudioContext resumed');
+                    sysStatusSpan.innerHTML = '🟢 RESUMED';
+                }).catch(e=>console.warn);
+            }
+        }
+        
+        // When page loads, build EQ UI first without audio
+        function setup() {
+            buildEqualizerUI();
+            toggleBtn.addEventListener('click', toggleMicrophoneEQ);
+            // additional safeguard: resume context if page gets any tap/click after suspend (common on mobile)
+            document.body.addEventListener('click', (e) => {
+                if (audioContext && audioContext.state === 'suspended' && isAudioActive) {
+                    audioContext.resume();
+                    sysStatusSpan.innerHTML = '🟢 ACTIVE (resumed)';
+                }
+            });
+            // Visibility handling: optional, don't kill stream but keep alive
+            window.addEventListener('beforeunload', () => {
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(t => t.stop());
+                }
+                if (audioContext) {
+                    audioContext.close();
+                }
+            });
+        }
+        
+        setup();
+        
+        // Additional real-time check: when slider changed, update filter gain immediately (callback already attached)
+        // However due to dynamic filterNodes creation after mic start, we need to also catch case when sliders moved before mic init.
+        // Already each slider sets updateFilterGain. If filters not yet created, we store value but later sync?
+        // We'll also add that if filters exist => update, else just store but when init, we set filters gain from current slider values.
+        // In initMicrophoneAndEQ we already set filter gains from slider values. Perfect.
+        // Override updateFilterGain to work also if filters array not ready but sliders will be applied at start.
+        // For safety, enhance updateFilterGain to do nothing if not active, but init loads from sliders.
+        window.updateFilterGain = updateFilterGain; // no need global but ok
+        
+        // Add small tooltip style for better usability: show actual latency note? Since WebAudio is sub-10ms typically.
+        console.log('Equalizer ready — sliders adjust gain in real time');
+        
+        // extra: handle audioContext initialization errors if autoplay policy; but we use explicit user click on button.
+        // Also if the page starts without permission, UI is clear.
+    })();
+</script>
+</body>
+</html>
